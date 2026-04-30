@@ -1,0 +1,65 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:9093"
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets:
+          - "prometheus:9090"
+
+  # ==============================
+  # Rurik app infrastructure
+  # ==============================
+
+  - job_name: "rurik_node"
+    static_configs:
+      - targets:
+          - "host.docker.internal:9100"
+
+  - job_name: "rurik_cadvisor"
+    static_configs:
+      - targets:
+          - "host.docker.internal:18080"
+
+  - job_name: "rurik_postgres"
+    static_configs:
+      - targets:
+          - "host.docker.internal:9187"
+
+  - job_name: "rurik_nginx"
+    static_configs:
+      - targets:
+          - "host.docker.internal:9113"
+
+  # ==============================
+  # Rurik app services
+  # Эти endpoints появятся после добавления /metrics в Node.js services
+  # ==============================
+
+  - job_name: "rurik_auth_service"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "host.docker.internal:3000"
+
+  - job_name: "rurik_leaderboard_service"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "host.docker.internal:3001"
+
+  - job_name: "rurik_game_service"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "host.docker.internal:3002"

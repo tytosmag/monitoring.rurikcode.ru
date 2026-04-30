@@ -1,0 +1,94 @@
+groups:
+  - name: rurik-infrastructure
+    rules:
+      - alert: RurikTargetDown
+        expr: up{job=~"rurik_.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          project: rurikcode
+        annotations:
+          summary: "Rurik target is down"
+          description: "{{ $labels.job }} / {{ $labels.instance }} is down for more than 1 minute."
+
+      - alert: RurikHighCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{job="rurik_node",mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          project: rurikcode
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage on {{ $labels.instance }} is above 85% for 5 minutes."
+
+      - alert: RurikHighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes{job="rurik_node"} / node_memory_MemTotal_bytes{job="rurik_node"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          project: rurikcode
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage on {{ $labels.instance }} is above 85% for 5 minutes."
+
+      - alert: RurikDiskAlmostFull
+        expr: 100 - ((node_filesystem_avail_bytes{job="rurik_node",fstype!~"tmpfs|overlay|squashfs"} * 100) / node_filesystem_size_bytes{job="rurik_node",fstype!~"tmpfs|overlay|squashfs"}) > 85
+        for: 10m
+        labels:
+          severity: warning
+          project: rurikcode
+        annotations:
+          summary: "Disk almost full"
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is more than 85% full."
+
+      - alert: RurikPostgresDown
+        expr: pg_up{job="rurik_postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          project: rurikcode
+        annotations:
+          summary: "PostgreSQL exporter cannot connect to database"
+          description: "PostgreSQL is unavailable or postgres_exporter cannot connect."
+
+      - alert: RurikNginxDown
+        expr: nginx_up{job="rurik_nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          project: rurikcode
+        annotations:
+          summary: "Nginx exporter cannot scrape Nginx"
+          description: "nginx_exporter cannot read /stub_status."
+
+  - name: rurik-application
+    rules:
+      - alert: RurikBackendTargetDown
+        expr: up{job=~"rurik_auth_service|rurik_leaderboard_service|rurik_game_service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          project: rurikcode
+        annotations:
+          summary: "Rurik backend service is down"
+          description: "{{ $labels.job }} / {{ $labels.instance }} is unavailable."
+
+      - alert: RurikHighHttp5xxRate
+        expr: sum by(job) (rate(http_requests_total{job=~"rurik_auth_service|rurik_leaderboard_service|rurik_game_service",status=~"5.."}[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: critical
+          project: rurikcode
+        annotations:
+          summary: "High HTTP 5xx rate"
+          description: "{{ $labels.job }} returns many 5xx errors."
+
+      - alert: RurikSlowApiResponses
+        expr: histogram_quantile(0.95, sum by(job, le) (rate(http_request_duration_seconds_bucket{job=~"rurik_auth_service|rurik_leaderboard_service|rurik_game_service"}[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+          project: rurikcode
+        annotations:
+          summary: "Slow API responses"
+          description: "p95 latency for {{ $labels.job }} is above 1 second."
